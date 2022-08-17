@@ -36,10 +36,13 @@ export default class Upsert extends DataCommand {
       description: messages.getMessage('flags.sobjecttype'),
       required: true,
     }),
+    assignmentruleid: flags.string({
+      description: messages.getMessage('flags.assignmentruleid'),
+    }),
   };
 
   public async run(): Promise<Partial<JobInfoV2>> {
-    const { sobjecttype, externalid, csvfile } = this.flags;
+    const { sobjecttype, externalid, csvfile, assignmentruleid } = this.flags;
     const conn: Connection = this.ensureOrg().getConnection();
     this.ux.startSpinner('Bulk Upsert');
 
@@ -71,6 +74,7 @@ export default class Upsert extends DataCommand {
       object: sobjecttype as string,
       operation: 'upsert',
       externalIdFieldName: externalid as string,
+      assignmentRuleId: assignmentruleid as string,
     });
 
     await job.open();
