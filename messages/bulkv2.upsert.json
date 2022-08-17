@@ -1,0 +1,13 @@
+{
+  "description": "bulkv2 upsert records from a CSV file\nInserts or updates records from a CSV file.\n",
+  "examples": [
+    "$ sfdx force:data:bulkv2:upsert -s MyObject__c -f ./path/to/file.csv -i MyField__c",
+    "$ sfdx force:data:bulkv2:upsert -s MyObject__c -f ./path/to/file.csv -i Id"
+  ],
+  "flags": {
+    "sobjecttype": "the sObject type of the records you want to upsert",
+    "csvfile": "the path to the CSV file that defines the records to upsert",
+    "externalid": "the column name of the external ID"
+  },
+  "CheckStatusCommand": "Check Job %s’s status with the command: \nsfdx force:data:bulkv2:status -i %s"
+}

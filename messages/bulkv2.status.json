@@ -1,0 +1,9 @@
+{
+  "description": "view the status of a bulk data load job\nRun this command using the job ID returned from the force:data:bulkv2:delete or force:data:bulkv2:upsert commands.",
+  "examples": ["$ sfdx force:data:bulkv2:status -i 750xx000000005sAAA"],
+  "flags": {
+    "jobid": "the ID of the job you want to view or of the job whose batch you want to view",
+    "showrecords": "display the processed records"
+  },
+  "NoBatchFound": "Unable to find batch %s for job %s."
+}

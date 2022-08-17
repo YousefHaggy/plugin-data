@@ -13,7 +13,7 @@ import { Schema } from 'jsforce';
 import { DataCommand } from '../../../../dataCommand';
 
 Messages.importMessagesDirectory(__dirname);
-const messages = Messages.loadMessages('@salesforce/plugin-data', 'bulk.status');
+const messages = Messages.loadMessages('@salesforce/plugin-data', 'bulkv2.status');
 
 export default class Status extends DataCommand {
   public static readonly description = messages.getMessage('description');
@@ -25,16 +25,30 @@ export default class Status extends DataCommand {
       description: messages.getMessage('flags.jobid'),
       required: true,
     }),
+    showrecords: flags.boolean({
+      char: 'r',
+      description: messages.getMessage('flags.showrecords'),
+      default: false,
+    }),
   };
 
   public async run(): Promise<IngestJobV2Results<Schema> | Partial<JobInfoV2>> {
+    const { jobid, showrecords } = this.flags;
     this.ux.startSpinner('Getting Status');
     const conn: Connection = this.ensureOrg().getConnection();
     // TODO: error handling
-    const job = conn.bulk2.job({ id: this.flags.jobid as string });
+    const job = conn.bulk2.job({ id: jobid as string });
     await job.check();
     this.ux.stopSpinner();
+    this.ux.styledHeader('BulkV2 Job Status');
     this.ux.styledObject(job.jobInfo);
-    return job.getAllResults();
+
+    if (showrecords) {
+      const results = await job.getAllResults();
+      this.ux.styledHeader('results');
+      this.ux.styledObject(results);
+      return { ...job.jobInfo, ...results };
+    }
+    return job.jobInfo;
   }
 }

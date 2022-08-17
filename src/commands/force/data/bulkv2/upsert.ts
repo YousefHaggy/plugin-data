@@ -10,10 +10,11 @@ import { ReadStream } from 'fs';
 import parse = require('csv-parse');
 import { flags, FlagsConfig } from '@salesforce/command';
 import { Connection, Messages } from '@salesforce/core';
+import { JobInfoV2 } from 'jsforce/lib/api/bulk';
 import { DataCommand } from '../../../../dataCommand';
 
 Messages.importMessagesDirectory(__dirname);
-const messages = Messages.loadMessages('@salesforce/plugin-data', 'bulk.upsert');
+const messages = Messages.loadMessages('@salesforce/plugin-data', 'bulkv2.upsert');
 
 export default class Upsert extends DataCommand {
   public static readonly description = messages.getMessage('description');
@@ -35,19 +36,9 @@ export default class Upsert extends DataCommand {
       description: messages.getMessage('flags.sobjecttype'),
       required: true,
     }),
-    wait: flags.minutes({
-      char: 'w',
-      description: messages.getMessage('flags.wait'),
-      min: 0,
-    }),
-    serial: flags.boolean({
-      char: 'r',
-      description: messages.getMessage('flags.serial'),
-      default: false,
-    }),
   };
 
-  public async run(): Promise<void> {
+  public async run(): Promise<Partial<JobInfoV2>> {
     const { sobjecttype, externalid, csvfile } = this.flags;
     const conn: Connection = this.ensureOrg().getConnection();
     this.ux.startSpinner('Bulk Upsert');
@@ -83,13 +74,11 @@ export default class Upsert extends DataCommand {
     });
 
     await job.open();
-    // TODO: think we can skip the parsing and just
     await job.uploadData(records);
-    this.ux.log(job.jobInfo.id || 'nio id');
-    // externalIdFieldName: externalid as string,
-    // input: records,
-    // const { successfulResults, failedResults, unprocessedRecords } = {};
-    // this.ux.log(successfulResults.toString(), failedResults.toString(), unprocessedRecords.toString());
+    await job.close();
+    this.ux.log(messages.getMessage('CheckStatusCommand', [job.id, job.id]));
     this.ux.stopSpinner();
+
+    return job.jobInfo;
   }
 }
