@@ -41,6 +41,24 @@
       "smartStep": true,
       "internalConsoleOptions": "openOnSessionStart",
       "preLaunchTask": "Compile"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Program",
+      "program": "${workspaceFolder}/bin/run",
+      "env": {
+        "NODE_TLS_REJECT_UNAUTHORIZED": 0
+      },
+      "args": [
+        "force:data:bulkv2:upsert",
+        "-s",
+        "Account",
+        "-i",
+        "Id",
+        "-f",
+        "test/test-files/data-project/data/bulkUpsert.csv"
+      ]
     }
   ]
 }

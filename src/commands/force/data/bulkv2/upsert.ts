@@ -7,10 +7,9 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import { ReadStream } from 'fs';
+import parse = require('csv-parse');
 import { flags, FlagsConfig } from '@salesforce/command';
 import { Connection, Messages } from '@salesforce/core';
-import { Job, JobInfo } from 'jsforce/job';
-import { Batcher, BulkResult } from '../../../../batcher';
 import { DataCommand } from '../../../../dataCommand';
 
 Messages.importMessagesDirectory(__dirname);
@@ -31,10 +30,6 @@ export default class Upsert extends DataCommand {
       description: messages.getMessage('flags.csvfile'),
       required: true,
     }),
-    mappingfile: flags.string({
-      char: 'm',
-      description: messages.getMessage('flags.mappingfile'),
-    }),
     sobjecttype: flags.string({
       char: 's',
       description: messages.getMessage('flags.sobjecttype'),
@@ -52,55 +47,49 @@ export default class Upsert extends DataCommand {
     }),
   };
 
-  public async run(): Promise<JobInfo[] | BulkResult[]> {
-    const { mappingfile } = this.flags;
+  public async run(): Promise<void> {
+    const { sobjecttype, externalid, csvfile } = this.flags;
     const conn: Connection = this.ensureOrg().getConnection();
     this.ux.startSpinner('Bulk Upsert');
 
     await this.throwIfPathDoesntExist(this.flags.csvfile as string);
 
-    const batcher: Batcher = new Batcher(conn, this.ux);
-    const csvStream: ReadStream = fs.createReadStream(this.flags.csvfile as string, { encoding: 'utf-8' });
+    const csvStream: ReadStream = fs.createReadStream(csvfile as string, { encoding: 'utf-8' });
 
-    // TODO: error handling, handling default args
-    const fieldMappings: Record<string, string> = {};
-    if (mappingfile) {
-      fs.readFileSync(mappingfile)
-        .toString()
-        .split('\n')
-        .forEach((line) => {
-          const [source, destination] = line.split('=');
-          fieldMappings[source] = destination;
-          this.ux.log(`Remapping the field ${source} to ${destination}`);
-        });
-    }
-    const concurrencyMode = this.flags.serial ? 'Serial' : 'Parallel';
-    const job: Job = conn.bulk.createJob(this.flags.sobjecttype, 'upsert', {
-      extIdField: this.flags.externalid as string,
-      concurrencyMode,
-    }) as unknown as Job;
-
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises,no-async-promise-executor
-    return new Promise(async (resolve, reject) => {
-      job.on('error', (err): void => {
-        reject(err);
-      });
-
-      try {
-        resolve(
-          await batcher.createAndExecuteBatches(
-            job,
-            csvStream,
-            fieldMappings,
-            this.flags.sobjecttype as string,
-            this.flags.wait as number
-          )
-        );
-        this.ux.stopSpinner();
-      } catch (e) {
-        this.ux.stopSpinner('error');
-        reject(e);
-      }
+    const records: Array<Record<string, string>> = [];
+    const parser = parse({
+      columns: true,
+      // library option is snakecase
+      // eslint-disable-next-line camelcase
+      skip_empty_lines: true,
+      bom: true,
     });
+
+    await new Promise<void>((resolve) => {
+      csvStream
+        .pipe(parser)
+        .on('data', (row) => {
+          records.push(row);
+        })
+        .on('end', () => {
+          resolve();
+        });
+    });
+
+    const job = conn.bulk2.createJob({
+      object: sobjecttype as string,
+      operation: 'upsert',
+      externalIdFieldName: externalid as string,
+    });
+
+    await job.open();
+    // TODO: think we can skip the parsing and just
+    await job.uploadData(records);
+    this.ux.log(job.jobInfo.id || 'nio id');
+    // externalIdFieldName: externalid as string,
+    // input: records,
+    // const { successfulResults, failedResults, unprocessedRecords } = {};
+    // this.ux.log(successfulResults.toString(), failedResults.toString(), unprocessedRecords.toString());
+    this.ux.stopSpinner();
   }
 }

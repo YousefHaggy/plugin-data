@@ -55,6 +55,7 @@ export default class Delete extends DataCommand {
       result = await batcher.createAndExecuteBatches(
         job,
         csvRecords,
+        {},
         this.flags.sobjecttype as string,
         this.flags.wait as number
       );

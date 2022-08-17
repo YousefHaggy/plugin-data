@@ -133,6 +133,7 @@ export class Batcher {
   public async createAndExecuteBatches(
     job: Job & { id?: string },
     records: ReadStream,
+    fieldMappings: Record<string, string>,
     sobjectType: string,
     wait?: number
   ): Promise<BulkResult[] | JobInfo[]> {
@@ -140,7 +141,7 @@ export class Batcher {
     let batchesQueued = 0;
     const overallInfo = false;
 
-    const batches = await this.splitIntoBatches(records);
+    const batches = await this.splitIntoBatches(records, fieldMappings);
 
     // The error handling for this gets quite tricky when there are multiple batches
     // Currently, we bail out early by calling an Error.exit
@@ -292,7 +293,7 @@ export class Batcher {
    * @param readStream - the read stream
    * @returns {Promise<Batches>}
    */
-  private async splitIntoBatches(readStream: ReadStream): Promise<Batches> {
+  private async splitIntoBatches(readStream: ReadStream, fieldMappings: Record<string, string>): Promise<Batches> {
     // split all records into batches
     const batches: Batches = [];
     let batchIndex = 0;
@@ -312,6 +313,11 @@ export class Batcher {
       readStream.pipe(parser);
 
       parser.on('data', (element: BatchEntry) => {
+        // TOOD: really bad poc, many bad casees
+        Object.entries(fieldMappings).forEach(([key, value]) => {
+          element[value] = element[key];
+          delete element[key];
+        });
         if (!batchHeaderBytes) {
           // capture header byte length
           batchHeaderBytes = Buffer.byteLength(stringify([Object.keys(element)]) + '\n', 'utf8');
